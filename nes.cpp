@@ -1,12 +1,12 @@
-﻿// nes.cpp : Defines the entry point for the application.
-//
+﻿
 
-#include "nes.h"
-
-using namespace std;
+#include <iostream>
 
 int main()
 {
-	cout << "Hello CMake." << endl;
+	std::cout << "Hello, world!\n";
+
+    std::cout << "Press any key to continue...";
+    std::cin.get();
 	return 0;
 }
