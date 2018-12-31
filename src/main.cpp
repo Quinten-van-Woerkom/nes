@@ -1,4 +1,5 @@
 /**
+ *  project: NES Emulator
  *  author: Quinten van Woerkom
  *
  *  Copyright 2018 Quinten van Woerkom
@@ -17,8 +18,18 @@
  */
 
 #include <iostream>
+#include <string_view>
+
+#include "byte.h"
+#include "cpu/cpu.h"
+
+using namespace nes;
 
 int main() {
+    status test{0xfe};
+    
+    std::cout << std::hex << static_cast<int>(test.as_byte()) << '\n';
+
     std::cout << "Hello, world!\n";
 
     std::cout << "Press any key to continue...";
