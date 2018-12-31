@@ -1,5 +1,4 @@
-﻿/**
- *  project: NES Emulator
+/**
  *  author: Quinten van Woerkom
  *
  *  Copyright 2018 Quinten van Woerkom
@@ -19,11 +18,10 @@
 
 #include <iostream>
 
-int main()
-{
-	std::cout << "Hello, world!\n";
+int main() {
+    std::cout << "Hello, world!\n";
 
     std::cout << "Press any key to continue...";
     std::cin.get();
-	return 0;
+    return 0;
 }
