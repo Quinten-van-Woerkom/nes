@@ -65,7 +65,7 @@ public:
         return _value ^= (1ul << index);
     }
 
-    friend auto operator<<(std::ostream& os, bitwise_wrapper value)
+    friend auto operator<<(std::ostream& os, bitwise_wrapper value) -> std::ostream&
     {
         auto old_state = std::ios{nullptr};
         old_state.copyfmt(os);

@@ -28,7 +28,7 @@ using namespace nes;
 int main() {
     status test{0xfe};
     
-    std::cout << std::hex << static_cast<int>(test.as_byte()) << '\n';
+    std::cout << test.as_byte() << '\n';
 
     std::cout << "Hello, world!\n";
 
