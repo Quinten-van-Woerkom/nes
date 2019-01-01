@@ -26,10 +26,7 @@
 using namespace nes;
 
 int main() {
-    status test{0xfe};
     
-    std::cout << test.as_byte() << '\n';
-
     std::cout << "Hello, world!\n";
 
     std::cout << "Press any key to continue...";

@@ -26,66 +26,50 @@
 namespace nes {
 /**
  *  Implementation of the processor status register.
+ *  Stores 
  */
-class status {
+class status : public byte {
 public:
+    using byte::byte;
+
     template<typename Integer>
-    explicit constexpr status(Integer flags) :
-        _flags{from_byte(static_cast<byte>(flags))}
+    explicit constexpr status(Integer other) :
+        byte{other.set(5).clear(4)}
     {}
 
-    constexpr auto operator=(byte flags) -> status&
+    constexpr auto with_break() const -> byte
     {
-        _flags = from_byte(flags);
-        return *this;
-    }
-
-    constexpr auto as_byte() const -> byte
-    {
-        return static_cast<byte>(parse_bitset(_flags));
+        return byte{*this}.set(4);
     }
 
     /**
      *  Processor flag getters
      */
-    constexpr auto carry()              const noexcept -> bool { return _flags[0]; }
-    constexpr auto zero()               const noexcept -> bool { return _flags[1]; }
-    constexpr auto interrupt_disable()  const noexcept -> bool { return _flags[2]; }
-    constexpr auto decimal()            const noexcept -> bool { return _flags[3]; }
-    constexpr auto break_flag()         const noexcept -> bool { return _flags[4]; }
-    constexpr auto unused()             const noexcept -> bool { return _flags[5]; }
-    constexpr auto overflow()           const noexcept -> bool { return _flags[6]; }
-    constexpr auto negative()           const noexcept -> bool { return _flags[7]; }
+    constexpr auto carry()              const -> bool { return bit(0); }
+    constexpr auto zero()               const -> bool { return bit(1); }
+    constexpr auto interrupt_disable()  const -> bool { return bit(2); }
+    constexpr auto decimal()            const -> bool { return bit(3); }
+    constexpr auto overflow()           const -> bool { return bit(6); }
+    constexpr auto negative()           const -> bool { return bit(7); }
 
 
     /**
      *  Boolean processor flag setters
      */
-    constexpr auto carry(bool c)                noexcept -> bool { return _flags[0] = c; }
-    constexpr auto zero(bool z)                 noexcept -> bool { return _flags[1] = z; }
-    constexpr auto interrupt_disable(bool i)    noexcept -> bool { return _flags[2] = i; }
-    constexpr auto decimal(bool d)              noexcept -> bool { return _flags[3] = d; }
-    constexpr auto break_flag(bool b)           noexcept -> bool { return _flags[4] = b; }
-    constexpr auto unused(bool u)               noexcept -> bool { return _flags[5] = u; }
-    constexpr auto overflow(bool v)             noexcept -> bool { return _flags[6] = v; }
-    constexpr auto negative(bool n)             noexcept -> bool { return _flags[7] = n; }
+    constexpr auto carry(bool c)                -> bool { set(0, c); return bit(0); }
+    constexpr auto zero(bool z)                 -> bool { set(1, z); return bit(1); }
+    constexpr auto interrupt_disable(bool i)    -> bool { set(2, i); return bit(2); }
+    constexpr auto decimal(bool d)              -> bool { set(3, d); return bit(3); }
+    constexpr auto overflow(bool v)             -> bool { set(6, v); return bit(6); }
+    constexpr auto negative(bool n)             -> bool { set(7, n); return bit(7); }
 
 
     /**
      *  Some flags can also be set according to a predicate.
      */
-    constexpr auto carry(int result)            noexcept -> bool { return _flags[0] = (result < -128) || (result > 127); }
-    constexpr auto zero(int result)             noexcept -> bool { return _flags[1] = result; }
-    //TODO: Implement predicate for overflow
-    constexpr auto negative(int result)         noexcept -> bool { return _flags[7] = (result < 0); }
-    
-private:
-    constexpr auto from_byte(byte flags) const -> std::array<bool, 8> {
-        auto result = std::array<bool, 8>{};
-        for (int i = 0, I = 8; i < I; ++i) result[i] = flags.bit(i);
-        return result;
-    }
-
-    std::array<bool, 8> _flags;
+    constexpr auto carry(int result)            -> bool { return carry(result < 0 || result > 0xff); } // Note: SBC should set the carry when 0 <= result <= 0xff
+    constexpr auto zero(int result)             -> bool { return zero(result == 0); }
+    constexpr auto negative(int result)         -> bool { return negative(byte{result}.bit(7)); }
+    constexpr auto overflow(int result)         -> bool { return overflow(result < 0x8f || result > 0x17f); } // Assumes unsigned byte addition
 };
 }

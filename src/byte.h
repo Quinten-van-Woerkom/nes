@@ -23,9 +23,11 @@
 
 #pragma once
 
+#include <cassert>
 #include <cstdint>
 #include <iostream>
 #include <iomanip>
+#include <limits>
 
 namespace nes {
 /**
@@ -33,10 +35,11 @@ namespace nes {
  *  Mostly a convenience wrapper, but allows for easy adaptation into register types and
  *  is useful for print output formatting.
  */
-template<typename T>
+template<typename Derived, typename T>
 class bitwise_wrapper {
 public:
     using value_type = T;
+    static constexpr std::size_t bit_count = sizeof(value_type) * 8;
 
     template<typename Integer>
     explicit constexpr bitwise_wrapper(Integer other) :
@@ -44,37 +47,62 @@ public:
     {}
 
     constexpr operator value_type() const { return _value; }
+    constexpr operator value_type&() { return _value; }
 
     constexpr auto bit(std::size_t index) const -> bool
     {
         return (_value >> index) & 1;
     }
 
-    constexpr void set(std::size_t index, bool value = true)
+    constexpr auto set(std::size_t index, bool value = true) -> Derived&
     {
-        _value ^= (-static_cast<unsigned long>(value) ^ _value) & (1ul << index);
+        _value = _value & ~(1 << index) | (value << index);
+        return static_cast<Derived&>(*this);
     }
 
-    constexpr void clear(std::size_t index)
+    constexpr auto clear(std::size_t index) -> Derived&
     {
         _value &= ~(1ul << index);
+        return static_cast<Derived&>(*this);
     }
 
-    constexpr auto toggle(std::size_t index) -> bool
+    constexpr auto toggle(std::size_t index) -> Derived&
     {
-        return _value ^= (1ul << index);
+        _value ^= (1ul << index);
+        return static_cast<Derived&>(*this);
     }
 
+    constexpr auto as_signed() const
+    {
+        return bitwise_wrapper<std::make_signed_t<T>>{static_cast<std::make_signed_t<T>>(_value)};
+    }
+
+    constexpr auto as_unsigned() const
+    {
+        return bitwise_wrapper<std::make_unsigned_t<T>>{static_cast<std::make_unsigned_t<T>>(_value)};
+    }
+
+    /**
+     *  Bitwise integers are printed in hexadecimal with a width equal to the
+     *  number of digits required to represent the maximum possible value, padded
+     *  to the left with zeroes.
+     */
     friend auto operator<<(std::ostream& os, bitwise_wrapper value) -> std::ostream&
     {
-        auto old_state = std::ios{nullptr};
-        old_state.copyfmt(os);
+        if constexpr (std::is_unsigned_v<T>)
+        {
+            auto old_state = std::ios{nullptr};
+            old_state.copyfmt(os);
 
-        os << std::hex << std::setw(2*sizeof(value_type)) << std::right << std::setfill('0');
-        os << static_cast<int>(value._value);
+            os << std::hex << std::setw(2*sizeof(value_type)) << std::right << std::setfill('0');
+            os << static_cast<int>(value._value);
 
-        os.copyfmt(old_state);
-        return os;
+            os.copyfmt(old_state);
+            return os;
+        }
+        else {
+            return os << static_cast<int>(value._value);
+        }
     }
 
 protected:
@@ -82,12 +110,12 @@ protected:
 };
 
 
-class byte : public bitwise_wrapper<std::uint8_t> {
+class byte : public bitwise_wrapper<byte, std::uint8_t> {
 public:
     using bitwise_wrapper::bitwise_wrapper;
 };
 
-class word : public bitwise_wrapper<std::uint16_t> {
+class word : public bitwise_wrapper<word, std::uint16_t> {
 public:
     using bitwise_wrapper::bitwise_wrapper;
 
@@ -97,32 +125,14 @@ public:
 
     constexpr auto high() const -> byte
     {
-        return static_cast<byte>(_value >> 8);
+        return byte{_value >> 8};
     }
 
     constexpr auto low() const -> byte
     {
-        return static_cast<byte>(_value);
+        return byte{_value & 0xff};
     }
 };
-
-
-/**
- *  Returns the most significant byte of a word.
- */
-constexpr auto high_byte(const word& word) -> byte
-{
-    return static_cast<byte>(word >> 8);
-}
-
-
-/**
- *  Returns the least significant byte of a word.
- */
-constexpr auto low_byte(const word& word) -> byte
-{
-    return static_cast<byte>(word);
-}
 
 
 /**
@@ -131,18 +141,6 @@ constexpr auto low_byte(const word& word) -> byte
 static_assert(byte{0x12} +0x34 == 0x46);
 static_assert(byte{0x1a} +word{0x2b00} == 0x2b1a);
 static_assert(byte{0xff} << 8 == word{0xff00});
-
-
-/**
- *  Converts a range of booleans into the unsigned integer it represents.
- */
-template<typename Container>
-constexpr auto parse_bitset(const Container& bits) -> unsigned long long
-{
-    unsigned long long result = 0;
-    for (int i = 0, I = 8; i < I; ++i) {
-        result |= (bits[i] << i);
-    }
-    return result;
-}
+static_assert(word{0xabcd}.high() == byte{0xab});
+static_assert(word{0xabcd}.low() == byte{0xcd});
 }
