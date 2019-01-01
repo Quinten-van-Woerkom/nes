@@ -71,7 +71,7 @@ public:
         old_state.copyfmt(os);
 
         os << std::hex << std::setw(2*sizeof(value_type)) << std::right << std::setfill('0');
-        os << value;
+        os << static_cast<int>(value._value);
 
         os.copyfmt(old_state);
         return os;
