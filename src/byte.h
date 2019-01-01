@@ -24,53 +24,87 @@
 #pragma once
 
 #include <cstdint>
+#include <iostream>
+#include <iomanip>
 
 namespace nes {
-
-class byte {
-public:
-    template<typename Integer>
-    explicit constexpr byte(Integer other) :
-        _byte{static_cast<std::uint8_t>(other)}
-    {}
-
-    constexpr operator std::uint8_t() const { return _byte; }
-
-    constexpr auto bit(std::size_t index) -> bool
-    {
-        return (_byte >> index) & 1;
-    }
-
-private:
-    std::uint8_t _byte;
-};
-
-class word {
-public:
-    template<typename Integer>
-    explicit constexpr word(Integer other) :
-        _word{static_cast<std::uint16_t>(other)}
-    {}
-
-    constexpr operator std::uint16_t() const { return _word; }
-
-    constexpr auto bit(std::size_t index) -> bool
-    {
-        return (_word >> index) & 1;
-    }
-
-private:
-    std::uint16_t _word;
-};
-
-
 /**
- *  Returns a word constructed from the given high and low bytes.
+ *  Wrapper for values of integral type to extend them with bitwise functionality.
+ *  Mostly a convenience wrapper, but allows for easy adaptation into register types and
+ *  is useful for print output formatting.
  */
-constexpr auto make_word(const byte& high, const byte& low) -> word
-{
-    return static_cast<word>(high << 8 | low);
-}
+template<typename T>
+class bitwise_wrapper {
+public:
+    using value_type = T;
+
+    template<typename Integer>
+    explicit constexpr bitwise_wrapper(Integer other) :
+        _value{static_cast<T>(other)}
+    {}
+
+    constexpr operator value_type() const { return _value; }
+
+    constexpr auto bit(std::size_t index) const -> bool
+    {
+        return (_value >> index) & 1;
+    }
+
+    constexpr void set(std::size_t index, bool value = true)
+    {
+        _value ^= (-static_cast<unsigned long>(value) ^ _value) & (1ul << index);
+    }
+
+    constexpr void clear(std::size_t index)
+    {
+        _value &= ~(1ul << index);
+    }
+
+    constexpr auto toggle(std::size_t index) -> bool
+    {
+        return _value ^= (1ul << index);
+    }
+
+    friend auto operator<<(std::ostream& os, bitwise_wrapper value)
+    {
+        auto old_state = std::ios{nullptr};
+        old_state.copyfmt(os);
+
+        os << std::hex << std::setw(2*sizeof(value_type)) << std::right << std::setfill('0');
+        os << value;
+
+        os.copyfmt(old_state);
+        return os;
+    }
+
+protected:
+    value_type _value;
+};
+
+
+class byte : public bitwise_wrapper<std::uint8_t> {
+public:
+    using bitwise_wrapper::bitwise_wrapper;
+};
+
+class word : public bitwise_wrapper<std::uint16_t> {
+public:
+    using bitwise_wrapper::bitwise_wrapper;
+
+    explicit constexpr word(byte high, byte low) :
+        bitwise_wrapper(high << 8 | low)
+    {}
+
+    constexpr auto high() const -> byte
+    {
+        return static_cast<byte>(_value >> 8);
+    }
+
+    constexpr auto low() const -> byte
+    {
+        return static_cast<byte>(_value);
+    }
+};
 
 
 /**
