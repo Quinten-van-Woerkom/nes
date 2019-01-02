@@ -17,6 +17,7 @@
  *  limitations under the License.
  */
 
+#include <array>
 #include <iostream>
 #include <string_view>
 
@@ -25,7 +26,7 @@
 
 using namespace nes;
 
-int main() {    
+int main() {
     std::cout << "Hello, world!\n";
 
     std::cout << "Press any key to continue...";

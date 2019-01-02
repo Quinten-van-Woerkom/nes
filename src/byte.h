@@ -92,15 +92,15 @@ public:
         return bitwise_wrapper<std::make_unsigned_t<T>>{static_cast<std::make_unsigned_t<T>>(_value)};
     }
 
-    constexpr auto increment() -> Derived&
+    constexpr auto increment(int step = 1) -> Derived&
     {
-        ++_value;
+        _value += step;
         return static_cast<Derived&>(*this);
     }
 
-    constexpr auto decrement() -> Derived&
+    constexpr auto decrement(int step = 1) -> Derived&
     {
-        --_value;
+        _value -= step;
         return static_cast<Derived&>(*this);
     }
 

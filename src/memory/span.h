@@ -23,6 +23,8 @@
 #include <iterator>
 #include <type_traits>
 
+#include "byte.h"
+
 namespace nes {
 namespace detail {
 constexpr std::ptrdiff_t dynamic_extent = -1;
@@ -32,11 +34,9 @@ constexpr std::ptrdiff_t dynamic_extent = -1;
  *  Provides a view into a contiguous area of memory, similar to the proposed std::span.
  *  Basically a pointer-size pair.
  */
-template<typename T, std::ptrdiff_t extent = detail::dynamic_extent>
+template<typename T, std::ptrdiff_t Extent = detail::dynamic_extent>
 class span {
 public:
-    static_assert(extent >= 0 || extent == detail::dynamic_extent, "Extent must be either non-negative or dynamic.");
-
     using element_type = T;
     using value_type = std::remove_cv_t<T>;
     using index_type = std::ptrdiff_t;
@@ -48,6 +48,10 @@ public:
     using const_iterator = const_pointer;
     using reverse_iterator = std::reverse_iterator<iterator>;
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
+
+    static constexpr std::ptrdiff_t extent = Extent;
+
+    static_assert(extent >= 0 || extent == detail::dynamic_extent, "Extent must be either non-negative or dynamic.");
 
     /**
      *  Constructors
@@ -69,25 +73,25 @@ public:
 
     template<std::size_t N>
     constexpr span(std::array<value_type, N>& container) noexcept :
-        _data{container.data()}, _size{container.size()} {
+        _data{container.data()}, _size{static_cast<index_type>(container.size())} {
         assert(size() == extent || size() == 0 || extent == detail::dynamic_extent);
     }
 
     template<std::size_t N>
     constexpr span(const std::array<value_type, N>& container) noexcept :
-        _data{container.data()}, _size{container.size()} {
+        _data{container.data()}, _size{static_cast<index_type>(container.size())} {
         assert(size() == extent || size() == 0 || extent == detail::dynamic_extent);
     }
 
     template<class Container>
     constexpr span(Container& container) :
-        _data{container.data()}, _size{container.size()} {
+        _data{container.data()}, _size{static_cast<index_type>(container.size())} {
         assert(size() == extent || size() == 0 || extent == detail::dynamic_extent);
     }
 
     template<class Container>
     constexpr span(const Container& container) :
-        _data{container.data()}, _size{container.size()} {
+        _data{container.data()}, _size{static_cast<index_type>(container.size())} {
         assert(size() == extent || size() == 0 || extent == detail::dynamic_extent);
     }
 
@@ -224,8 +228,8 @@ public:
     }
 
 private:
-    T* _data;
-    std::size_t _size;
+    pointer _data;
+    index_type _size;
 };
 
 
