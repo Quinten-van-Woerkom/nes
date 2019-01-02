@@ -25,8 +25,7 @@
 
 using namespace nes;
 
-int main() {
-    
+int main() {    
     std::cout << "Hello, world!\n";
 
     std::cout << "Press any key to continue...";

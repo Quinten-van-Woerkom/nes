@@ -19,27 +19,32 @@
 
 #pragma once
 
-#include <array>
+#include <string_view>
 
 #include "../byte.h"
+#include "../memory.h"
 
 namespace nes {
 /**
  *  Implementation of the processor status register.
- *  Stores 
+ *  Stores
  */
 class status : public byte {
 public:
     using byte::byte;
 
+    explicit constexpr status(byte other) :
+        byte{other.set(5).clear(4)}
+    {}
+
     template<typename Integer>
     explicit constexpr status(Integer other) :
-        byte{other.set(5).clear(4)}
+        status{byte{other}}
     {}
 
     constexpr auto with_break() const -> byte
     {
-        return byte{*this}.set(4);
+        return status{*this}.set(4);
     }
 
     /**
@@ -72,4 +77,52 @@ public:
     constexpr auto negative(int result)         -> bool { return negative(byte{result}.bit(7)); }
     constexpr auto overflow(int result)         -> bool { return overflow(result < 0x8f || result > 0x17f); } // Assumes unsigned byte addition
 };
+
+
+/**
+ *  Implementation of the stack with the corresponding stack pointer register.
+ *  The 6502 stack is of the empty, descending kind and the pointer wraps around
+ *  when overflow occurs.
+ */
+class stack {
+public:
+    constexpr stack(span<byte, 0x100> storage) noexcept :
+        _pointer{0xff},
+        _storage{storage} {}
+
+    constexpr stack(byte& pointer, const span<byte, 0x100> storage) noexcept :
+        _pointer{pointer},
+        _storage{storage} {}
+
+    constexpr void push(byte value)
+    {
+        _storage[_pointer] = value;
+        _pointer.decrement();
+    }
+
+    constexpr auto pull() -> byte
+    {
+        _pointer.increment();
+        return _storage[_pointer];
+    }
+
+    constexpr auto pointer() const -> byte
+    {
+        return _pointer;
+    }
+
+    constexpr auto pointer(byte value) -> byte
+    {
+        return _pointer;
+    }
+
+private:
+    byte _pointer;
+    span<byte, 0x100> _storage;
+};
+
+
+/**
+ *  
+ */
 }

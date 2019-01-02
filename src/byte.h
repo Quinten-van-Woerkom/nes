@@ -54,6 +54,16 @@ public:
         return (_value >> index) & 1;
     }
 
+    constexpr auto high_bit() const -> bool
+    {
+        return bit(bit_count - 1);
+    }
+
+    constexpr auto low_bit() const -> bool
+    {
+        return bit(0);
+    }
+
     constexpr auto set(std::size_t index, bool value = true) -> Derived&
     {
         _value = _value & ~(1 << index) | (value << index);
@@ -80,6 +90,46 @@ public:
     constexpr auto as_unsigned() const
     {
         return bitwise_wrapper<std::make_unsigned_t<T>>{static_cast<std::make_unsigned_t<T>>(_value)};
+    }
+
+    constexpr auto increment() -> Derived&
+    {
+        ++_value;
+        return static_cast<Derived&>(*this);
+    }
+
+    constexpr auto decrement() -> Derived&
+    {
+        --_value;
+        return static_cast<Derived&>(*this);
+    }
+
+    constexpr auto shift_left(bool carry = false) -> bool
+    {
+        const auto new_carry = high_bit();
+        _value <<= 1;
+        set(0, carry);
+        return new_carry;
+    }
+
+    constexpr auto shift_right(bool carry = false) -> bool
+    {
+        const auto new_carry = low_bit();
+        _value >>= 1;
+        set(bit_count - 1, carry);
+        return new_carry;
+    }
+
+    constexpr auto rotate_left(bool& carry) -> Derived&
+    {
+        carry = shift_left(carry);
+        return static_cast<Derived&>(*this);
+    }
+
+    constexpr auto rotate_right(bool& carry) -> Derived&
+    {
+        carry = shift_right(carry);
+        return static_cast<Derived&>(*this);
     }
 
     /**
