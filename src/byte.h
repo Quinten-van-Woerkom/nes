@@ -41,6 +41,8 @@ public:
     using value_type = T;
     static constexpr std::size_t bit_count = sizeof(value_type) * 8;
 
+    explicit constexpr bitwise_wrapper() = default;
+
     template<typename Integer>
     explicit constexpr bitwise_wrapper(Integer other) :
         _value{static_cast<T>(other)}
@@ -156,7 +158,7 @@ public:
     }
 
 protected:
-    value_type _value;
+    value_type _value = 0;
 };
 
 

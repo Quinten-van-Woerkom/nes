@@ -134,10 +134,7 @@ public:
     using accumulator = byte;
     using index_register = byte;
     using program_counter = word;
-
-
-
-
+    
 
 private:
     accumulator _a;

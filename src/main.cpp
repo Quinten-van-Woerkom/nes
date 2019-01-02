@@ -23,10 +23,14 @@
 
 #include "byte.h"
 #include "cpu/cpu.h"
+#include "memory/memory.h"
 
 using namespace nes;
 
 int main() {
+    auto test = std::array{1, 2, 3, 4, 5};
+    auto segm = memory::segment{test, range{4, 9}};
+
     std::cout << "Hello, world!\n";
 
     std::cout << "Press any key to continue...";

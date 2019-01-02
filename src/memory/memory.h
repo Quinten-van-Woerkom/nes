@@ -25,93 +25,87 @@
 #include "span.h"
 
 namespace nes {
-class memory {
-    /**
-     *  A memory segment is a span which is aware of its relative position in NES memory.
-     *  As a result, it is useful in the implementation of stateful pointers, as
-     *  it allows address-based access and knows its size.
-     */
-    class segment {
-    public:
-        constexpr segment(span<byte> view, word location) noexcept :
-            _view{view}, _location{location} {}
+/**
+ *  Small class representing a range of value types [begin, end).
+ */
+template<typename T>
+class range {
+public:
+    explicit constexpr range(T begin, T end) :
+        _begin{begin}, _end{end} {}
 
-        /**
-         *  Returns whether or not an address falls within this segment's memory range.
-         */
-        constexpr bool contains(word address) const noexcept
-        {
-            const auto relative_address = address - _location;
-            return relative_address >= 0 && relative_address < size();
-        }
-
-
-        /**
-         *  Read and access functions.
-         */
-        constexpr auto read(word address) const -> byte
-        {
-            const auto index = address - _location;
-            return _view[index];
-        }
-
-        constexpr void write(word address, byte value)
-        {
-            const auto index = address - _location;
-            _view[index] = value;
-        }
-
-        constexpr auto access(word address) const -> const byte&
-        {
-            const auto index = address - _location;
-            return _view[index];
-        }
-
-        constexpr auto access(word address) -> byte&
-        {
-            const auto index = address - _location;
-            return _view[index];
-        }
-
-
-    private:
-        span<byte> _view;
-        word _location;
-    };
-
-
-    /**
-     *  Pointers are stateful; they are aware of their location in memory and
-     *  the limits of their current segment. As such, they can automatically
-     *  map to a new memory segment when exceeding the current segment's bounds.
-     *  This is useful in the efficient implementation of a memory map.
-     */
-    class pointer {
-    public:
-        constexpr pointer(word address, segment location, memory& storage) :
-            _address{address}, _storage{storage} {}
-
-
-
-    private:
-        word _address;
-        segment _location;
-        memory& _storage;
-    };
-
-
-    /**
-     *  Maps an address to the corresponding memory segment.
-     */
-    constexpr auto map(word address) -> segment
+    constexpr bool contains(T value) const noexcept
     {
-        if (address < 0x0800) return segment{_ram, 0x0000};
-        if (address < 0x1000) return segment{_ram, 0x0800};
-        if (address < 0x1800) return segment{_ram, 0x1000};
-        if (address < 0x2000) return segment{_ram, 0x1800};
+        return value >= _begin && value < _end;
     }
 
-    std::array<byte, 0x4028> _storage;
-    span<byte> _ram{_storage.data(), 0x800};
-}
+    constexpr auto begin() const noexcept -> T
+    {
+        return _begin;
+    }
+
+    constexpr auto end() const noexcept -> T
+    {
+        return _end;
+    }
+
+    constexpr auto size() const noexcept -> T
+    {
+        return _end - _begin;
+    }
+
+private:
+    T _begin, _end;
+};
+
+
+/**
+ *  NES memory is very much interlinked, though it is 'owned' by multiple
+ *  devices. This class effectively implements the memory bus linking all
+ *  memory resources.
+ */
+class memory {
+public:
+    /**
+     *  A memory segment is a span which is aware of its relative position in NES memory.
+     *  This allows accessing using the NES indices.
+     */
+    class segment :
+        private span<byte>,
+        private range<word> {
+    public:
+        constexpr segment(span memory, range address_space) :
+            span{memory}, range{address_space} {}
+
+        using span::size;
+        using span::begin;
+        using span::end;
+        using range::contains;
+
+        /**
+         *  Accessors
+         */
+        constexpr auto operator()(word address) const -> byte
+        {
+            const auto index = compute_index(address);
+            return this->operator[](index);
+        }
+
+        constexpr auto operator()(word address) -> byte&
+        {
+            const auto index = compute_index(address);
+            return this->operator[](index);
+        }
+
+        
+    private:
+        constexpr auto compute_index(word address) const -> index_type
+        {
+            return (address - range::begin()) % size();
+        }
+    };
+
+private:
+
+};
 }
