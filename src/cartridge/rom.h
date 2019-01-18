@@ -78,28 +78,25 @@ void read(std::ifstream& file, Container& destination)
 }
 
 
+/**
+ *  iNES headers should start with the byte combination $4e $45 $53 $1a,
+ *  which is NES followed by an EOF character.
+ */
+constexpr bool valid_header(const std::array<byte, 16>& header)
+{
+    return (header[0] == 0x4E && header[1] == 0x45 && header[2] == 0x53 && header[3] == 0x1a);
+}
+
 
 /**
- *  Reads from the file path given.
- *  If unable to read, returns empty optional.
+ *  Reads the iNES file header into the given ROM object.
  */
-auto read_rom(const fs::path& path) -> rom_file
+void read_header(std::ifstream& file, rom_file& result)
 {
-    if (!fs::exists(path)) throw std::invalid_argument("Non-existent file.");
-
-    auto file = std::ifstream(path, std::ios::binary);
-    if (!file.is_open()) throw std::invalid_argument("Unable to open file.");
-
     std::array<byte, 16> header;
     read(file, header, 16);
 
-    if (!(header[0] == 0x4E && header[1] == 0x45 && header[2] == 0x53 && header[3] == 0x1a)) {
-        throw std::invalid_argument("File does not match supported format or is corrupted.");
-    }
-    
-
-    rom_file result;
-    result.mapper = (header[6] >> 4) | (header[7] & 0xf0);
+    if (!valid_header(header)) throw std::runtime_error("Invalid file format or corrupted file.");
 
     result.vertical_mirroring = header[6].bit(0);
     result.persistent_memory = header[6].bit(1);
@@ -108,27 +105,74 @@ auto read_rom(const fs::path& path) -> rom_file
     result.vs_unisystem = header[7].bit(0);
     result.playchoice = header[7].bit(1);
 
+    result.mapper = (header[6] >> 4) | (header[7] & 0xf0);
+
+    result.prg_rom.resize(header[4]);
+    result.chr_rom.resize(header[5]);
+}
+
+
+/**
+ *  Initialise trainer
+ */
+void initialise_trainer(std::ifstream& file, rom_file& result)
+{
     if (result.trainer_present) {
         result.trainer.reserve(512);
         read(file, result.trainer, 512);
     }
+}
 
-    const auto prg_banks = header[4];
-    result.prg_rom.reserve(prg_banks);
+
+/**
+ *  Initialise PRG ROM
+ */
+void initialise_prg_rom(std::ifstream& file, rom_file& result)
+{
     for (auto& bank : result.prg_rom) {
         read(file, bank, 0x4000);
     }
+}
 
-    const auto chr_banks = header[5];
-    result.chr_rom.reserve(chr_banks);
+
+/**
+ *  Initialise CHR ROM
+ */
+void initialise_chr_rom(std::ifstream& file, rom_file& result)
+{
     for (auto& bank : result.chr_rom) {
         read(file, bank, 0x2000);
     }
+}
 
+
+/**
+ *  Initialise PlayChoice data from ROM.
+ */
+void initialise_playchoice(std::ifstream& file, rom_file& result)
+{
     if (result.playchoice) {
         result.playchoice_data.reserve(0x2000);
         read(file, result.playchoice_data, 0x2000);
     }
+}
+
+
+/**
+ *  Reads from the file path given.
+ */
+auto read_rom(const fs::path& path) -> rom_file
+{
+    if (!fs::exists(path)) throw std::invalid_argument("Non-existent file.");
+    auto file = std::ifstream{path, std::ios::binary};
+    if (!file.is_open()) throw std::invalid_argument("Unable to open file.");
+
+    rom_file result;
+    read_header(file, result);
+    initialise_trainer(file, result);
+    initialise_prg_rom(file, result);
+    initialise_chr_rom(file, result);
+    initialise_playchoice(file, result);
 
     return result;
 }
