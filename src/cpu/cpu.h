@@ -20,7 +20,7 @@
 #pragma once
 
 #include "../byte.h"
-#include "../memory/span.h"
+#include "../memory/memory.h"
 
 namespace nes {
 /**
@@ -90,11 +90,11 @@ public:
      */
     class stack {
     public:
-        constexpr stack(span<byte, 0x100> storage) noexcept :
+        constexpr stack(span<byte> storage) noexcept :
             _pointer{0xff},
             _storage{storage} {}
 
-        constexpr stack(byte& pointer, const span<byte, 0x100> storage) noexcept :
+        constexpr stack(byte& pointer, const span<byte> storage) noexcept :
             _pointer{pointer},
             _storage{storage} {}
 

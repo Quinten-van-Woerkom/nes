@@ -97,7 +97,7 @@ public:
 
     template<class U, std::ptrdiff_t N>
     constexpr span(const span<U, N>& other) noexcept :
-        _data{span.data()}, _size{span.size()} {
+        _data{other.data()}, _size{other.size()} {
         assert(size() == extent || size() == 0 || extent == detail::dynamic_extent);
     }
 

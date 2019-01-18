@@ -24,16 +24,24 @@
 #include "byte.h"
 #include "cpu/cpu.h"
 #include "memory/memory.h"
+#include "cartridge/rom.h"
 
 using namespace nes;
 
 int main() {
-    auto test = std::array{1, 2, 3, 4, 5};
-    auto segm = memory::segment{test, range{4, 9}};
+    try {
+        auto result = read_rom("../../external/donkey kong.nes");
 
-    std::cout << "Hello, world!\n";
+        std::cout << result.mapper << '\n';
 
-    std::cout << "Press any key to continue...";
-    std::cin.get();
-    return 0;
+        std::cout << "Hello, world!\n";
+
+        std::cout << "Press any key to continue...";
+        std::cin.get();
+        return 0;
+    }
+    catch (const std::exception& e) {
+        std::cout << e.what() << '\n';
+        std::cin.get();
+    }
 }

@@ -26,86 +26,83 @@
 
 namespace nes {
 /**
- *  Small class representing a range of value types [begin, end).
+ *  A memory segment is an array which is aware of its global position
+ *  in memory. This allows accessing using the global indices.
  */
-template<typename T>
-class range {
+template<auto size, auto begin, auto end>
+class segment {
 public:
-    explicit constexpr range(T begin, T end) :
-        _begin{begin}, _end{end} {}
-
-    constexpr bool contains(T value) const noexcept
+    /**
+     *  Accessors using global address
+     */
+    constexpr auto operator()(word address) const -> byte
     {
-        return value >= _begin && value < _end;
+        const auto index = compute_index(address);
+        return _storage[index];
     }
 
-    constexpr auto begin() const noexcept -> T
+    constexpr auto operator()(word address) -> byte&
     {
-        return _begin;
+        const auto index = compute_index(address);
+        return _storage[index];
     }
 
-    constexpr auto end() const noexcept -> T
+
+    /**
+     *  Returns whether or not the memory segment's address space contains
+     *  the address given.
+     */
+    static constexpr bool contains(word address) noexcept
     {
-        return _end;
+        return address >= begin && address < end;
     }
 
-    constexpr auto size() const noexcept -> T
-    {
-        return _end - _begin;
-    }
 
 private:
-    T _begin, _end;
+    /**
+     *  Converts the global address into the index for array access.
+     */
+    static constexpr auto compute_index(word address) noexcept ->std::ptrdiff_t
+    {
+        return (address - begin) % size;
+    }
+
+    std::array<byte, size> _storage;
 };
 
 
+
+class cpu;
+class ppu;
+class registers;
+class cartridge;
+
 /**
- *  NES memory is very much interlinked, though it is 'owned' by multiple
- *  devices. This class effectively implements the memory bus linking all
- *  memory resources.
+ *  NES memory is very much interlinked, though it is owned by multiple
+ *  devices. This class implements the memory bus linking all memory resources.
  */
 class memory {
 public:
+    constexpr memory(cpu& cpu, ppu& ppu, cartridge& cartridge) :
+        _cpu{cpu}, _ppu{ppu}, _cartridge{cartridge} {}
+
+
     /**
-     *  A memory segment is a span which is aware of its relative position in NES memory.
-     *  This allows accessing using the NES indices.
+     *  Memory contains several registers.
+     *  Access might result in additional actions.
      */
-    class segment :
-        private span<byte>,
-        private range<word> {
+    class registers {
     public:
-        constexpr segment(span memory, range address_space) :
-            span{memory}, range{address_space} {}
 
-        using span::size;
-        using span::begin;
-        using span::end;
-        using range::contains;
-
-        /**
-         *  Accessors
-         */
-        constexpr auto operator()(word address) const -> byte
-        {
-            const auto index = compute_index(address);
-            return this->operator[](index);
-        }
-
-        constexpr auto operator()(word address) -> byte&
-        {
-            const auto index = compute_index(address);
-            return this->operator[](index);
-        }
-
-        
     private:
-        constexpr auto compute_index(word address) const -> index_type
-        {
-            return (address - range::begin()) % size();
-        }
+
     };
 
-private:
 
+private:
+    cpu& _cpu;
+    ppu& _ppu;
+    cartridge& _cartridge;
+    registers _registers;
 };
 }
