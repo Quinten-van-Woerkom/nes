@@ -21,126 +21,139 @@
 
 #include "../byte.h"
 #include "../memory/memory.h"
+#include "../memory/span.h"
 
 namespace nes {
+/**
+ *  Implementation of the processor status register.
+ *  Bit 4 (break flag) is not physically present in the status register, but
+ *  is set or cleared when the status register's byte value is pushed on
+ *  the stack.
+ *  Bit 5 is unused and not physically present, but is always considered set.
+ */
+struct status {
+    bool carry;
+    bool zero;
+    bool interrupt_disable;
+    bool decimal;
+    bool overflow;
+    bool negative;
+
+    constexpr status(byte other = byte{0x24}) :
+        carry{other.bit(0)},
+        zero{other.bit(1)},
+        interrupt_disable{other.bit(2)},
+        decimal{other.bit(3)},
+        overflow{other.bit(6)},
+        negative{other.bit(7)}
+    {}
+
+    constexpr status(int other) : status(byte{other}) {}
+
+    constexpr auto operator=(byte other) -> status&
+    {
+        carry = other.bit(0);
+        zero = other.bit(1);
+        interrupt_disable = other.bit(2);
+        decimal = other.bit(3);
+        overflow = other.bit(6);
+        negative = other.bit(7);
+        return *this;
+    }
+
+    constexpr auto value() const
+    {
+        return byte{
+            carry << 0 | zero << 1 | interrupt_disable << 2 |
+            decimal << 3 | overflow << 6 | negative << 7
+        };
+    }
+
+    constexpr auto instruction_value() const -> byte
+    {
+        return value().set(5).set(4);
+    }
+
+    constexpr auto interrupt_value() const -> byte
+    {
+        return value().set(5);
+    }
+};
+
+
+
+/**
+ *  Implementation of the stack with the corresponding stack pointer register.
+ *  The 6502 stack is of the empty, descending kind and the pointer wraps around
+ *  when overflow occurs.
+ */
+class stack {
+public:
+    constexpr stack(segment_view ram, byte pointer = byte{0xff}) noexcept :
+        pointer{pointer},
+        _storage{ram.subspan(word{0x100}, word{0x200})} {}
+
+    constexpr void push(byte value)
+    {
+        _storage[pointer] = value;
+        pointer.decrement();
+    }
+
+    constexpr auto pull() -> byte
+    {
+        pointer.increment();
+        return _storage[pointer];
+    }
+
+    constexpr auto peek() -> byte
+    {
+        return _storage[pointer + 1];
+    }
+
+    byte pointer;
+
+private:
+    segment_view _storage;
+};
+
+
+
 /**
  *  Implementation of the processor registers with instructions and addressing modes.
  */
 class processor {
 public:
-
-    /**
-     *  Implementation of the processor status register.
-     *  Stores
-     */
-    class status : public byte {
-    public:
-        using byte::byte;
-
-        explicit constexpr status(byte other) :
-            byte{other.set(5).clear(4)}
-        {}
-
-        template<typename Integer>
-        explicit constexpr status(Integer other) :
-            status{byte{other}}
-        {}
-
-        constexpr auto with_break() const -> byte
-        {
-            return status{*this}.set(4);
-        }
-
-        /**
-         *  Processor flag getters
-         */
-        constexpr auto carry()              const -> bool { return bit(0); }
-        constexpr auto zero()               const -> bool { return bit(1); }
-        constexpr auto interrupt_disable()  const -> bool { return bit(2); }
-        constexpr auto decimal()            const -> bool { return bit(3); }
-        constexpr auto overflow()           const -> bool { return bit(6); }
-        constexpr auto negative()           const -> bool { return bit(7); }
-
-
-        /**
-         *  Boolean processor flag setters
-         */
-        constexpr auto carry(bool c)                -> bool { set(0, c); return bit(0); }
-        constexpr auto zero(bool z)                 -> bool { set(1, z); return bit(1); }
-        constexpr auto interrupt_disable(bool i)    -> bool { set(2, i); return bit(2); }
-        constexpr auto decimal(bool d)              -> bool { set(3, d); return bit(3); }
-        constexpr auto overflow(bool v)             -> bool { set(6, v); return bit(6); }
-        constexpr auto negative(bool n)             -> bool { set(7, n); return bit(7); }
-
-
-        /**
-         *  Some flags can also be set according to a predicate.
-         */
-        constexpr auto carry(int result)            -> bool { return carry(result < 0 || result > 0xff); } // Note: SBC should set the carry when 0 <= result <= 0xff
-        constexpr auto zero(int result)             -> bool { return zero(result == 0); }
-        constexpr auto negative(int result)         -> bool { return negative(byte{result}.bit(7)); }
-        constexpr auto overflow(int result)         -> bool { return overflow(result < 0x8f || result > 0x17f); } // Assumes unsigned byte addition
-    };
-
-
-    /**
-     *  Implementation of the stack with the corresponding stack pointer register.
-     *  The 6502 stack is of the empty, descending kind and the pointer wraps around
-     *  when overflow occurs.
-     */
-    class stack {
-    public:
-        constexpr stack(span<byte> storage) noexcept :
-            _pointer{0xff},
-            _storage{storage} {}
-
-        constexpr stack(byte& pointer, const span<byte> storage) noexcept :
-            _pointer{pointer},
-            _storage{storage} {}
-
-        constexpr void push(byte value)
-        {
-            _storage[_pointer] = value;
-            _pointer.decrement();
-        }
-
-        constexpr auto pull() -> byte
-        {
-            _pointer.increment();
-            return _storage[_pointer];
-        }
-
-        constexpr auto pointer() const noexcept -> byte
-        {
-            return _pointer;
-        }
-
-        constexpr auto pointer(byte value) noexcept -> byte
-        {
-            return _pointer;
-        }
-
-    private:
-        byte _pointer;
-        span<byte, 0x100> _storage;
-    };
-
-
-    /**
-     *  The accumulator and index registers are simple bytes.
-     *  The program counter is a word interpreted as an address.
-     *  As they have no special functionality, simple typedefs are used for now.
-     */
-    using accumulator = byte;
-    using index_register = byte;
-    using program_counter = word;
-    
+    constexpr processor(segment_view ram) :
+        _stack{ram},
+        _status{0x24},
+        _accumulator{0x00},
+        _x{0x00},
+        _y{0x00},
+        _program_counter{0xfffd}
+    {}
 
 private:
-    accumulator _a;
-    index_register _x, _y;
-    program_counter _pc;
-    status _p;
     stack _stack;
+    status _status;
+    byte _accumulator;
+    byte _x, _y;
+    word _program_counter;
+};
+
+
+
+/**
+ *  
+ */
+class cpu {
+public:
+    constexpr cpu(memory& memory) :
+        _processor{memory.ram()},
+        _memory{memory}
+    {}
+
+private:
+    processor _processor;
+    memory& _memory;
 };
 }

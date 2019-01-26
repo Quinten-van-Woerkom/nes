@@ -44,7 +44,7 @@ public:
     explicit constexpr bitwise_wrapper() = default;
 
     template<typename Integer>
-    explicit constexpr bitwise_wrapper(Integer other) :
+    constexpr bitwise_wrapper(Integer other) :
         _value{static_cast<T>(other)}
     {}
 
@@ -188,6 +188,17 @@ public:
 
 
 /**
+ *  Determines if addition would result in signed overflow.
+ */
+constexpr auto overflows(byte left, byte right) -> bool
+{
+    const bool carry_in = left.bit(6) && right.bit(6);
+    const bool carry_out = (left.bit(7) && right.bit(7)) || (left.bit(7) && carry_in) || (right.bit(7) && carry_in);
+    return carry_in ^ carry_out;
+}
+
+
+/**
  *  Small tests checking byte and word behaviour.
  */
 static_assert(byte{0x12} +0x34 == 0x46);
@@ -195,4 +206,9 @@ static_assert(byte{0x1a} +word{0x2b00} == 0x2b1a);
 static_assert(byte{0xff} << 8 == word{0xff00});
 static_assert(word{0xabcd}.high() == byte{0xab});
 static_assert(word{0xabcd}.low() == byte{0xcd});
+
+static_assert(overflows(byte{0x50}, byte{0x50}));
+static_assert(overflows(byte{0xd0}, byte{0x90}));
+static_assert(!overflows(byte{0x50}, byte{0x10}));
+static_assert(!overflows(byte{0xd0}, byte{0xd0}));
 }

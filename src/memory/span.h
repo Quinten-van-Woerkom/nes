@@ -62,7 +62,7 @@ public:
         _data{nullptr}, _size{0} {}
 
     constexpr span(pointer ptr, index_type count) :
-        _data{pointer}, _size{count} {
+        _data{ptr}, _size{count} {
         assert(size() == extent || size() == 0 || extent == detail::dynamic_extent);
     }
 

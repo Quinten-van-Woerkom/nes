@@ -69,6 +69,13 @@ void read(std::ifstream& file, Container& destination, std::ptrdiff_t count)
     std::copy_n(std::istream_iterator<value_type>{file}, count, destination.begin());
 }
 
+template<typename Type>
+void read(std::ifstream& file, std::vector<Type>& destination, std::ptrdiff_t count)
+{
+    destination.reserve(count);
+    std::copy_n(std::istream_iterator<Type>{file}, count, destination.begin());
+}
+
 
 template<typename Container>
 void read(std::ifstream& file, Container& destination)
@@ -113,52 +120,6 @@ void read_header(std::ifstream& file, rom_file& result)
 
 
 /**
- *  Initialise trainer
- */
-void initialise_trainer(std::ifstream& file, rom_file& result)
-{
-    if (result.trainer_present) {
-        result.trainer.reserve(512);
-        read(file, result.trainer, 512);
-    }
-}
-
-
-/**
- *  Initialise PRG ROM
- */
-void initialise_prg_rom(std::ifstream& file, rom_file& result)
-{
-    for (auto& bank : result.prg_rom) {
-        read(file, bank, 0x4000);
-    }
-}
-
-
-/**
- *  Initialise CHR ROM
- */
-void initialise_chr_rom(std::ifstream& file, rom_file& result)
-{
-    for (auto& bank : result.chr_rom) {
-        read(file, bank, 0x2000);
-    }
-}
-
-
-/**
- *  Initialise PlayChoice data from ROM.
- */
-void initialise_playchoice(std::ifstream& file, rom_file& result)
-{
-    if (result.playchoice) {
-        result.playchoice_data.reserve(0x2000);
-        read(file, result.playchoice_data, 0x2000);
-    }
-}
-
-
-/**
  *  Reads from the file path given.
  */
 auto read_rom(const fs::path& path) -> rom_file
@@ -169,10 +130,11 @@ auto read_rom(const fs::path& path) -> rom_file
 
     rom_file result;
     read_header(file, result);
-    initialise_trainer(file, result);
-    initialise_prg_rom(file, result);
-    initialise_chr_rom(file, result);
-    initialise_playchoice(file, result);
+
+    if (result.trainer_present) read(file, result.trainer, 0x200);
+    for (auto& bank : result.prg_rom) read(file, bank, 0x4000);
+    for (auto& bank : result.chr_rom) read(file, bank, 0x2000);
+    if (result.playchoice) read(file, result.playchoice_data, 0x2000);
 
     return result;
 }

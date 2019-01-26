@@ -22,59 +22,11 @@
 #include <array>
 
 #include "../byte.h"
-#include "span.h"
+#include "segment.h"
 
 namespace nes {
-/**
- *  A memory segment is an array which is aware of its global position
- *  in memory. This allows accessing using the global indices.
- */
-template<auto size, auto begin, auto end>
-class segment {
-public:
-    /**
-     *  Accessors using global address
-     */
-    constexpr auto operator()(word address) const -> byte
-    {
-        const auto index = compute_index(address);
-        return _storage[index];
-    }
-
-    constexpr auto operator()(word address) -> byte&
-    {
-        const auto index = compute_index(address);
-        return _storage[index];
-    }
-
-
-    /**
-     *  Returns whether or not the memory segment's address space contains
-     *  the address given.
-     */
-    static constexpr bool contains(word address) noexcept
-    {
-        return address >= begin && address < end;
-    }
-
-
-private:
-    /**
-     *  Converts the global address into the index for array access.
-     */
-    static constexpr auto compute_index(word address) noexcept ->std::ptrdiff_t
-    {
-        return (address - begin) % size;
-    }
-
-    std::array<byte, size> _storage;
-};
-
-
-
 class cpu;
 class ppu;
-class registers;
 class cartridge;
 
 /**
@@ -83,26 +35,94 @@ class cartridge;
  */
 class memory {
 public:
-    constexpr memory(cpu& cpu, ppu& ppu, cartridge& cartridge) :
-        _cpu{cpu}, _ppu{ppu}, _cartridge{cartridge} {}
+    using random_access_memory = segment<0x800, 0x0000, 0x4000>;
+    using registers = segment<0x20, 0x4000, 0x4020>; // TODO: Implement memory mapped registers
 
+    constexpr auto read(word address) const -> byte;
+    constexpr void write(word address, byte data);
 
-    /**
-     *  Memory contains several registers.
-     *  Access might result in additional actions.
-     */
-    class registers {
-    public:
-
-    private:
-
-    };
-
+    constexpr auto ram() -> segment_view;
 
 private:
-    cpu& _cpu;
+    random_access_memory _ram;
     ppu& _ppu;
     cartridge& _cartridge;
     registers _registers;
+};
+
+
+
+/**
+ *  Due to memory mapping and bank switching, normal references cannot be used.
+ *  Instead, a simple wrapper class is used to allow for references.
+ */
+class reference {
+public:
+    constexpr reference(memory& host, word address) :
+        _host{host}, _address{address}
+    {}
+
+    constexpr operator byte() const
+    {
+        return _host.read(_address);
+    }
+
+    constexpr operator word() const
+    {
+        return word{
+            _host.read(_address),
+            _host.read(_address + 1)
+        };
+    }
+
+    constexpr auto operator=(byte data) -> reference&
+    {
+        _host.write(_address, data);
+        return *this;
+    }
+
+    constexpr auto operator=(word data) -> reference&
+    {
+        _host.write(_address, data.low());
+        _host.write(_address + 1, data.high());
+        return *this;
+    }
+
+private:
+    memory& _host;
+    word _address;
+};
+
+
+/**
+ *  Pointer implementation.
+ */
+class pointer {
+public:
+    constexpr pointer(memory& host, word address) :
+        _host{host}, _address{address}
+    {}
+
+    constexpr auto operator*() -> reference
+    {
+        return reference{_host, _address};
+    }
+
+    constexpr auto operator++() -> pointer&
+    {
+        ++_address;
+        return *this;
+    }
+
+    constexpr auto operator++(int) -> pointer
+    {
+        const auto temp = *this;
+        ++(*this);
+        return temp;
+    }
+
+private:
+    memory& _host;
+    word _address;
 };
 }

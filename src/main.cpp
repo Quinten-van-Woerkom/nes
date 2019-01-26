@@ -29,19 +29,11 @@
 using namespace nes;
 
 int main() {
-    try {
-        auto result = read_rom("../../external/donkey kong.nes");
+    auto result = read_rom("../../external/donkey kong.nes");
 
-        std::cout << result.mapper << '\n';
+    std::cout << "Hello, world!\n";
 
-        std::cout << "Hello, world!\n";
-
-        std::cout << "Press any key to continue...";
-        std::cin.get();
-        return 0;
-    }
-    catch (const std::exception& e) {
-        std::cout << e.what() << '\n';
-        std::cin.get();
-    }
+    std::cout << "Press any key to continue...";
+    std::cin.get();
+    return 0;
 }

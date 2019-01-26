@@ -19,28 +19,11 @@
 
 #pragma once
 
-#include <array>
-#include <vector>
-
-#include "../byte.h"
-#include "rom.h"
-
 namespace nes {
-/**
- *  Implements the functionality associated with the Nintendo cartridge boards.
- */
-class cartridge {
+class ppu {
 public:
-    constexpr auto read(word address) const -> byte
-    {
-        // To be implemented
-        return byte{0};
-    }
-
-    constexpr void write(word address, byte data)
-    {
-        /* Writes to rom are a no-op. */
-    }
+    auto read(word address) const -> byte { return byte{0}; }
+    void write(word address, byte data) {}
 
 private:
 
