@@ -21,20 +21,38 @@
 
 #include <array>
 #include <vector>
+#include <experimental/filesystem>
 
 #include "../byte.h"
 #include "rom.h"
 
 namespace nes {
+namespace fs = std::experimental::filesystem;
 /**
  *  Implements the functionality associated with the Nintendo cartridge boards.
  */
 class cartridge {
 public:
+    cartridge(const fs::path path) :
+        cartridge{read_rom(path)}
+    {}
+
+    cartridge(rom_file file) :
+        _prg_rom(file.prg_rom),
+        _chr_rom(file.chr_rom),
+        _prg_lower{span<byte>{_prg_rom.data(), 0x4000}, word{0x8000}, word{0x4000}},
+        _prg_upper{span<byte>{_prg_rom.data() + 0x4000, 0x4000}, word{0xc000}, word{0x4000}}
+    {
+        if (file.mapper != 0x00) throw std::runtime_error{"Unsupported mapper type: only mapper 0 is implemented"};
+        if (_prg_rom.size() > 0x8000) throw std::runtime_error{"Unsupported PRG ROM size in ROM file: bank switching is not yet supported"};
+        if (_chr_rom.size() > 0x2000) throw std::runtime_error{"Unsupported CHR ROM size in ROM file: bank switching is not yet supported"};
+    }
+
+
     constexpr auto read(word address) const -> byte
     {
-        // To be implemented
-        return byte{0};
+        if (address < 0xc000) return _prg_lower.read(address);
+        else return _prg_lower.read(address);
     }
 
     constexpr void write(word address, byte data)
@@ -43,6 +61,10 @@ public:
     }
 
 private:
-
+    std::vector<byte> _prg_rom;
+    std::vector<byte> _chr_rom;
+    segment_view _prg_lower;
+    segment_view _prg_upper;
+    /* TODO: CHR ROM segment*/
 };
 }

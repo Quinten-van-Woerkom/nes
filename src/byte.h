@@ -44,7 +44,7 @@ public:
     explicit constexpr bitwise_wrapper() = default;
 
     template<typename Integer>
-    constexpr bitwise_wrapper(Integer other) :
+    explicit constexpr bitwise_wrapper(Integer other) :
         _value{static_cast<T>(other)}
     {}
 
@@ -132,6 +132,15 @@ public:
     {
         carry = shift_right(carry);
         return static_cast<Derived&>(*this);
+    }
+
+    /**
+     *  A byte's sign is determined from its two's complement interpretation:
+     *  if bit 7 is set, the byte is negative, otherwise it is positive.
+     */
+    constexpr auto sign() const -> bool
+    {
+        return bit(7);
     }
 
     /**

@@ -71,7 +71,7 @@ public:
     {
         return word{
             _host.read(_address),
-            _host.read(_address + 1)
+            _host.read(word{_address + 1})
         };
     }
 
@@ -84,7 +84,7 @@ public:
     constexpr auto operator=(word data) -> reference&
     {
         _host.write(_address, data.low());
-        _host.write(_address + 1, data.high());
+        _host.write(word{_address + 1}, data.high());
         return *this;
     }
 
@@ -102,6 +102,11 @@ public:
     constexpr pointer(memory& host, word address) :
         _host{host}, _address{address}
     {}
+
+    constexpr operator word() const
+    {
+        return _address;
+    }
 
     constexpr auto operator*() -> reference
     {

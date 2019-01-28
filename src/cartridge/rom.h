@@ -39,7 +39,7 @@ using prg_rom_unit = std::array<byte, 0x4000>;
 using chr_rom_unit = std::array<byte, 0x2000>;
 
 struct rom_file {
-    std::int16_t mapper;            // Currently, only 0 is supported
+    std::uint8_t mapper;    // Currently, only 0 is supported
 
     // Flags 6
     bool vertical_mirroring;
@@ -52,8 +52,8 @@ struct rom_file {
     bool playchoice;
     
     std::vector<byte> trainer;  // 0 or 512 bytes
-    std::vector<prg_rom_unit> prg_rom;  // In 16 KB units
-    std::vector<chr_rom_unit> chr_rom;  // In 8 KB units
+    std::vector<byte> prg_rom;  // In 16 KB units
+    std::vector<byte> chr_rom;  // In 8 KB units
     std::vector<byte> playchoice_data; // 0 or 8 KB
 };
 
@@ -74,14 +74,6 @@ void read(std::ifstream& file, std::vector<Type>& destination, std::ptrdiff_t co
 {
     destination.reserve(count);
     std::copy_n(std::istream_iterator<Type>{file}, count, destination.begin());
-}
-
-
-template<typename Container>
-void read(std::ifstream& file, Container& destination)
-{
-    using istream_iterator = std::istream_iterator<typename Container::value_type>;
-    std::copy(istream_iterator{file}, istream_iterator{}, destination.begin());
 }
 
 
@@ -114,8 +106,8 @@ void read_header(std::ifstream& file, rom_file& result)
 
     result.mapper = (header[6] >> 4) | (header[7] & 0xf0);
 
-    result.prg_rom.resize(header[4]);
-    result.chr_rom.resize(header[5]);
+    result.prg_rom.resize(header[4] * 0x4000);
+    result.chr_rom.resize(header[5] * 0x2000);
 }
 
 
@@ -130,12 +122,12 @@ auto read_rom(const fs::path& path) -> rom_file
 
     rom_file result;
     read_header(file, result);
-
+    
     if (result.trainer_present) read(file, result.trainer, 0x200);
-    for (auto& bank : result.prg_rom) read(file, bank, 0x4000);
-    for (auto& bank : result.chr_rom) read(file, bank, 0x2000);
+    read(file, result.prg_rom, result.prg_rom.size());
+    read(file, result.chr_rom, result.chr_rom.size());
     if (result.playchoice) read(file, result.playchoice_data, 0x2000);
-
+    
     return result;
 }
 }

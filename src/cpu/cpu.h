@@ -69,6 +69,14 @@ struct status {
         };
     }
 
+
+    /**
+     *  The numeric value of the processor status pushed to the stack depends
+     *  on the operation being executed:
+     *      - Instructions (PHP, BRK): bit 4 set
+     *      - Interrupts (IRQ, NMI): bit 4 is clear
+     *  Bit 5, although not actually physically present, is always pushed as set.
+     */
     constexpr auto instruction_value() const -> byte
     {
         return value().set(5).set(4);
@@ -77,6 +85,38 @@ struct status {
     constexpr auto interrupt_value() const -> byte
     {
         return value().set(5);
+    }
+
+
+    /**
+     *  Most logical operations affect the zero and negative flags.
+     *  Almost always, the zero flag is set if the result of an operation is
+     *  zero, and the negative flag in case its bit 7 is set.
+     */
+    void logical(const unsigned int result)
+    {
+        zero = byte{result} == 0;
+        negative = byte{result}.sign();
+    }
+
+    /**
+     *  In addition, most arithmetic operations update the carry flag as well
+     *  as the logical flags.
+     */
+    void arithmetic(const unsigned int result)
+    {
+        logical(result);
+        carry = result > 0xff;
+    }
+
+    /**
+     *  If addition or subtraction is performed, signed overflow can occur.
+     *  When this happens, the overflow flag must be set, indicating that the
+     *  sign of the result is incorrect with respect to the operand signs.
+     */
+    void overflows(const byte left, const byte right, const unsigned int result)
+    {
+        overflow = (left.sign() == right.sign()) && (left.sign() != byte{result}.sign());
     }
 };
 
@@ -99,10 +139,23 @@ public:
         pointer.decrement();
     }
 
+    constexpr void push(word value)
+    {
+        push(value.high());
+        push(value.low());
+    }
+
     constexpr auto pull() -> byte
     {
         pointer.increment();
         return _storage[pointer];
+    }
+
+    constexpr auto pull_word()
+    {
+        const auto low = pull();
+        const auto high = pull();
+        return word{high, low};
     }
 
     constexpr auto peek() -> byte
@@ -132,7 +185,107 @@ public:
         _program_counter{0xfffd}
     {}
 
+    /**
+     *  56 supported instructions.
+     *  Four operand types are possible:
+     *      - implied: no operand is needed
+     *      - byte: byte is passed by value
+     *      - reference: reference to byte in memory
+     *      - pointer: address in memory
+     *  Reference and pointer can only refer to memory, byte can also be a register.
+     *  Implementations of these functions are found in instruction.cpp.
+     */
+
+    /* Storage */
+    void lda(byte);
+    void ldx(byte);
+    void ldy(byte);
+    void sta(reference);
+    void stx(reference);
+    void sty(reference);
+    void tax();
+    void tay();
+    void tsx();
+    void txa();
+    void txs();
+    void tya();
+
+    /* Math */
+    void adc(byte);
+    void dec(reference);
+    void dex();
+    void dey();
+    void inc(reference);
+    void inx();
+    void iny();
+    void sbc(byte);
+
+    /* Bitwise */
+    void and_(byte);
+    void asl();
+    void asl(reference);
+    void bit(byte);
+    void eor(byte);
+    void lsr();
+    void lsr(reference);
+    void ora(byte);
+    void rol();
+    void rol(reference);
+    void ror();
+    void ror(reference);
+
+    /* Branch */
+    void bcc(pointer);
+    void bcs(pointer);
+    void beq(pointer);
+    void bmi(pointer);
+    void bne(pointer);
+    void bpl(pointer);
+    void bvc(pointer);
+    void bvs(pointer);
+        
+    /* Jump */
+    void jmp(pointer);
+    void jsr(pointer);
+    void rti();
+    void rts();
+
+    /* Registers */
+    void clc();
+    void cld();
+    void cli();
+    void clv();
+    void cmp(byte);
+    void cpx(byte);
+    void cpy(byte);
+    void sec();
+    void sed();
+    void sei();
+
+    /* Stack */
+    void pha();
+    void php();
+    void pla();
+    void plp();
+
+    /* System */
+    void nop() {};
+    void brk(pointer vector);
+
 private:
+    /**
+     *  Helper functions implementing often-repeated parts of instructions.
+     */
+    void transfer(byte& from, byte& to);
+    auto decrement(byte operand) -> byte;
+    auto increment(byte operand) -> byte;
+    void branch(pointer location);
+    auto shift_left(byte operand) -> byte;
+    auto shift_right(byte operand) -> byte;
+    auto rotate_left(byte operand) -> byte;
+    auto rotate_right(byte operand) -> byte;
+    void compare(byte left, byte right);
+
     stack _stack;
     status _status;
     byte _accumulator;

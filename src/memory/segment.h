@@ -31,8 +31,8 @@ namespace nes {
  */
 class segment_view {
 public:
-	explicit constexpr segment_view(span<byte> segment, word begin, word end) :
-        _segment{segment}, _begin{begin}, _end{end} {}
+	explicit constexpr segment_view(span<byte> segment, word begin, word size) :
+        _segment{segment}, _begin{begin}, _size{size} {}
 
     /**
      *  Accessors using global address
@@ -66,9 +66,9 @@ public:
     /**
      *  Returns a subspan of the segment view.
      */
-    constexpr auto subspan(word begin, word end) -> segment_view
+    constexpr auto subspan(word begin, word size) -> segment_view
     {
-        return segment_view{_segment.subspan(begin - _begin, end - begin), begin, end};
+        return segment_view{_segment.subspan(begin - _begin, size), begin, size};
     }
 
 
@@ -78,7 +78,7 @@ public:
      */
     constexpr bool contains(word address) const noexcept
     {
-        return address >= _begin && address < _end;
+        return address >= _begin && address - _begin < _size;
     }
 
 private:
@@ -88,7 +88,7 @@ private:
     }
 
     span<byte> _segment;
-    word _begin, _end;
+    word _begin, _size;
 };
 
 

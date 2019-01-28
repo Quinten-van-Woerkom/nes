@@ -25,11 +25,12 @@
 #include "cpu/cpu.h"
 #include "memory/memory.h"
 #include "cartridge/rom.h"
+#include "cartridge/cartridge.h"
 
 using namespace nes;
 
 int main() {
-    auto result = read_rom("../../external/donkey kong.nes");
+    auto cartr = cartridge{"../../external/donkey kong.nes"};
 
     std::cout << "Hello, world!\n";
 
