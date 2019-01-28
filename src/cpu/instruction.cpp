@@ -279,7 +279,7 @@ void processor::plp() { _status = _stack.pull(); }
 /**************************************************************************************************
  *  System
  */
-void processor::brk(pointer vector) // Vector should generally be 0xfffe, the IRQ vector
+void processor::brk(reference vector) // Vector is generally located at 0xfffe, the IRQ vector
 {
     _stack.push(_program_counter);
     _stack.push(_status.instruction_value());
