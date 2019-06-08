@@ -25,109 +25,136 @@
 #include "segment.h"
 
 namespace nes {
-class cpu;
-class ppu;
-class cartridge;
-
-/**
- *  NES memory is very much interlinked, though it is owned by multiple
- *  devices. This class implements the memory bus linking all memory resources.
+/*
+ *  Generalised memory management class.
+ *  Checks all member devices upon memory access.
  */
+template<typename... Devices>
 class memory {
 public:
-    using random_access_memory = segment<0x800, 0x0000, 0x4000>;
-    using registers = segment<0x20, 0x4000, 0x4020>; // TODO: Implement memory mapped registers
+    constexpr memory(Devices&... devices) :
+        _devices{std::forward_as_tuple(devices...)} {}
 
-    constexpr auto read(word address) const -> byte;
-    constexpr void write(word address, byte data);
+    constexpr auto read(word address) const -> byte {
+        return read_helper<0>(address);
+    }
 
-    constexpr auto ram() -> segment_view;
+    constexpr void write(word address, byte data) {
+        write_helper<0>(address, data);
+    }
 
+    constexpr auto access(word access) const -> reference {
+        return reference{*this, address};
+    }
+
+    /**
+     *  Due to memory mapping and bank switching, normal references cannot be used.
+     *  Instead, a simple wrapper class is used to allow for references.
+     */
+    class reference {
+    public:
+        constexpr reference(memory& host, word address) :
+            _host{host}, _address{address}
+        {}
+
+        constexpr operator byte() const {
+            return _host.read(_address);
+        }
+
+        constexpr operator word() const {
+            return word{
+                _host.read(_address),
+                _host.read(word{_address + 1})
+            };
+        }
+
+        constexpr auto operator=(byte data) -> reference& {
+            _host.write(_address, data);
+            return *this;
+        }
+
+        constexpr auto operator=(word data) -> reference& {
+            _host.write(_address, data.low());
+            _host.write(word{_address + 1}, data.high());
+            return *this;
+        }
+
+        constexpr auto pointer() const -> pointer {
+            return pointer{_host, _address};
+        }
+
+    private:
+        memory& _host;
+        word _address;
+    };
+
+
+    /**
+     *  Pointer implementation.
+     */
+    class pointer {
+    public:
+        constexpr pointer(memory& host, word address) :
+            _host{host}, _address{address}
+        {}
+
+        constexpr operator word() const {
+            return _address;
+        }
+
+        constexpr auto operator*() -> reference {
+            return reference{_host, _address};
+        }
+
+        constexpr auto operator++() -> pointer& {
+            ++_address;
+            return *this;
+        }
+
+        constexpr auto operator++(int) -> pointer {
+            const auto temp = *this;
+            ++(*this);
+            return temp;
+        }
+
+    private:
+        memory& _host;
+        word _address;
+    };
+    
 private:
-    random_access_memory _ram;
-    ppu& _ppu;
-    cartridge& _cartridge;
-    registers _registers;
-};
+    using Tuple = std::tuple<std::reference_wrapper<Devices>...>;
+    static constexpr auto device_count = std::tuple_size_v<Tuple>;
 
-
-
-/**
- *  Due to memory mapping and bank switching, normal references cannot be used.
- *  Instead, a simple wrapper class is used to allow for references.
- */
-class reference {
-public:
-    constexpr reference(memory& host, word address) :
-        _host{host}, _address{address}
-    {}
-
-    constexpr operator byte() const
-    {
-        return _host.read(_address);
+    template<auto depth>
+    constexpr auto read_helper(word address) const -> byte {
+        if constexpr (depth == device_count) {
+            throw std::runtime_error{"Unhandled memory read at address: " + address};
+            return byte{0x00};
+        } else {
+            if (std::get<depth>(_devices).get().contains(address)) {
+                return std::get<depth>(_devices).get().read(address);
+            } else {
+                return read_helper<depth + 1>(address);
+            }
+        }
     }
 
-    constexpr operator word() const
-    {
-        return word{
-            _host.read(_address),
-            _host.read(word{_address + 1})
-        };
+    template<auto depth>
+    constexpr void write_helper(word address, byte data) {
+        if constexpr (depth == device_count) {
+            throw std::runtime_error{"Unhandled memory write at addres: " + address};
+            return;
+        }
+        else {
+            if (std::get<depth>(_devices).get().contains(address)) {
+                return std::get<depth>(_devices).get().write(address, data);
+            } else {
+                return write_helper<depth + 1>(address, data);
+            }
+        }
     }
 
-    constexpr auto operator=(byte data) -> reference&
-    {
-        _host.write(_address, data);
-        return *this;
-    }
-
-    constexpr auto operator=(word data) -> reference&
-    {
-        _host.write(_address, data.low());
-        _host.write(word{_address + 1}, data.high());
-        return *this;
-    }
-
-private:
-    memory& _host;
-    word _address;
-};
-
-
-/**
- *  Pointer implementation.
- */
-class pointer {
-public:
-    constexpr pointer(memory& host, word address) :
-        _host{host}, _address{address}
-    {}
-
-    constexpr operator word() const
-    {
-        return _address;
-    }
-
-    constexpr auto operator*() -> reference
-    {
-        return reference{_host, _address};
-    }
-
-    constexpr auto operator++() -> pointer&
-    {
-        ++_address;
-        return *this;
-    }
-
-    constexpr auto operator++(int) -> pointer
-    {
-        const auto temp = *this;
-        ++(*this);
-        return temp;
-    }
-
-private:
-    memory& _host;
-    word _address;
+    Tuple _devices;
 };
 }

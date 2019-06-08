@@ -170,12 +170,18 @@ private:
 };
 
 
+class cpu;
+class ppu;
+class registers;
+class cartridge;
 
 /**
  *  Implementation of the processor registers with instructions and addressing modes.
  */
 class processor {
 public:
+    using memory = memory<cpu, ppu, registers, cartridge>;
+
     constexpr processor(segment_view ram) :
         _stack{ram},
         _status{0x24},
@@ -200,9 +206,9 @@ public:
     void lda(byte);
     void ldx(byte);
     void ldy(byte);
-    void sta(reference);
-    void stx(reference);
-    void sty(reference);
+    void sta(memory::reference);
+    void stx(memory::reference);
+    void sty(memory::reference);
     void tax();
     void tay();
     void tsx();
@@ -212,10 +218,10 @@ public:
 
     /* Math */
     void adc(byte);
-    void dec(reference);
+    void dec(memory::reference);
     void dex();
     void dey();
-    void inc(reference);
+    void inc(memory::reference);
     void inx();
     void iny();
     void sbc(byte);
@@ -223,30 +229,30 @@ public:
     /* Bitwise */
     void and_(byte);
     void asl();
-    void asl(reference);
+    void asl(memory::reference);
     void bit(byte);
     void eor(byte);
     void lsr();
-    void lsr(reference);
+    void lsr(memory::reference);
     void ora(byte);
     void rol();
-    void rol(reference);
+    void rol(memory::reference);
     void ror();
-    void ror(reference);
+    void ror(memory::reference);
 
     /* Branch */
-    void bcc(pointer);
-    void bcs(pointer);
-    void beq(pointer);
-    void bmi(pointer);
-    void bne(pointer);
-    void bpl(pointer);
-    void bvc(pointer);
-    void bvs(pointer);
+    void bcc(memory::pointer);
+    void bcs(memory::pointer);
+    void beq(memory::pointer);
+    void bmi(memory::pointer);
+    void bne(memory::pointer);
+    void bpl(memory::pointer);
+    void bvc(memory::pointer);
+    void bvs(memory::pointer);
         
     /* Jump */
-    void jmp(pointer);
-    void jsr(pointer);
+    void jmp(memory::pointer);
+    void jsr(memory::pointer);
     void rti();
     void rts();
 
@@ -270,7 +276,7 @@ public:
 
     /* System */
     void nop() {};
-    void brk(pointer vector);
+    void brk(memory::pointer vector);
 
 private:
     /**
@@ -279,7 +285,7 @@ private:
     void transfer(byte& from, byte& to);
     auto decrement(byte operand) -> byte;
     auto increment(byte operand) -> byte;
-    void branch(pointer location);
+    void branch(memory::pointer location);
     auto shift_left(byte operand) -> byte;
     auto shift_right(byte operand) -> byte;
     auto rotate_left(byte operand) -> byte;
@@ -293,20 +299,22 @@ private:
     word _program_counter;
 };
 
-
-
 /**
  *  
  */
 class cpu {
 public:
+    using ram = segment<0x800, 0x000, 0x2000>;
+    using memory = memory<cpu, ppu, registers, cartridge>;
+
     constexpr cpu(memory& memory) :
-        _processor{memory.ram()},
+        _processor{_ram.view()},
         _memory{memory}
     {}
 
 private:
     processor _processor;
+    ram _ram;
     memory& _memory;
 };
 }

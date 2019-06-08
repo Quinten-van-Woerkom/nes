@@ -30,7 +30,22 @@
 using namespace nes;
 
 int main() {
-    auto cartr = cartridge{"../../external/donkey kong.nes"};
+    /*auto cartr = cartridge{"../../external/donkey kong.nes"};*/
+    using segment1 = segment<0x200, 0x000, 0x400>;
+    class segment2;
+    using memory_type = memory<segment1, segment2>;
+
+    class segment2 : public segment<0x100, 0x400, 0x800> {};
+
+
+    segment1 seg1;
+    segment2 seg2;
+
+    auto mem = memory_type{seg1, seg2};
+
+    std::cout << mem.read(word{0xff}) << '\n';
+    mem.write(word{0xff}, byte{0xfe});
+    std::cout << mem.read(word{0x2ff}) << '\n';
 
     std::cout << "Hello, world!\n";
 
